@@ -15,6 +15,31 @@ static Dynarmic::A32::UserConfig GetUserConfig(ThumbTestEnv* testenv) {
     return user_config;
 }
 
+TEST_CASE("thumb: vaddhn.i32 d30, q15, q13", "[thumb][asimd]") {
+    ThumbTestEnv test_env;
+    Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};
+    test_env.code_mem = {
+        0xEFDE, 0xE4AA,  // vaddhn.i32 d30, q15, q13
+        0xE7FE,          // b .
+    };
+    jit.ExtRegs()[60] = 0x00010000;
+    jit.ExtRegs()[61] = 0x12345678;
+    jit.ExtRegs()[62] = 0xFFFF0000;
+    jit.ExtRegs()[63] = 0x7FFF8000;
+    jit.ExtRegs()[52] = 0x00010000;
+    jit.ExtRegs()[53] = 0x11111111;
+    jit.ExtRegs()[54] = 0x00020000;
+    jit.ExtRegs()[55] = 0x00018000;
+    jit.Regs()[15] = 0;
+    jit.SetCpsr(0x00000030);
+    test_env.ticks_left = 1;
+    jit.Run();
+    REQUIRE(jit.Regs()[15] == 4);
+    REQUIRE(jit.ExtRegs()[60] == 0x23450002);
+    REQUIRE(jit.ExtRegs()[61] == 0x80010001);
+    REQUIRE(test_env.interrupts.empty());
+}
+
 TEST_CASE("thumb: lsls r0, r1, #2", "[thumb]") {
     ThumbTestEnv test_env;
     Dynarmic::A32::Jit jit{GetUserConfig(&test_env)};

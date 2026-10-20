@@ -905,6 +905,24 @@ bool TranslatorVisitor::asimd_VADDL(bool U, bool D, size_t sz, size_t Vn, size_t
     });
 }
 
+bool TranslatorVisitor::asimd_VADDHN(bool D, size_t sz, size_t Vn, size_t Vd, bool N, bool M, size_t Vm) {
+    if (sz == 0b11) {
+        return DecodeError();
+    }
+    if (mcl::bit::get_bit<0>(Vn) || mcl::bit::get_bit<0>(Vm)) {
+        return UndefinedInstruction();
+    }
+
+    const size_t wide_esize = 16U << sz;
+    const auto d = ToVector(false, Vd, D);
+    const auto n = ToVector(true, Vn, N);
+    const auto m = ToVector(true, Vm, M);
+    const auto sum = ir.VectorAdd(wide_esize, ir.GetVector(n), ir.GetVector(m));
+    const auto high_halves = ir.VectorLogicalShiftRight(wide_esize, sum, static_cast<u8>(wide_esize / 2));
+    ir.SetVector(d, ir.VectorNarrow(wide_esize, high_halves));
+    return true;
+}
+
 bool TranslatorVisitor::asimd_VSUBL(bool U, bool D, size_t sz, size_t Vn, size_t Vd, bool op, bool N, bool M, size_t Vm) {
     return WideInstruction(*this, U, D, sz, Vn, Vd, N, M, Vm, op ? WidenBehaviour::Second : WidenBehaviour::Both, [this](size_t esize, const auto&, const auto& reg_n, const auto& reg_m) {
         return ir.VectorSub(esize, reg_n, reg_m);
