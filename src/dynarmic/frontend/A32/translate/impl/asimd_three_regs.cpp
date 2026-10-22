@@ -905,7 +905,7 @@ bool TranslatorVisitor::asimd_VADDL(bool U, bool D, size_t sz, size_t Vn, size_t
     });
 }
 
-bool TranslatorVisitor::asimd_VADDHN(bool D, size_t sz, size_t Vn, size_t Vd, bool N, bool M, size_t Vm) {
+bool TranslatorVisitor::asimd_VADDHN(bool U, bool D, size_t sz, size_t Vn, size_t Vd, bool op, bool N, bool M, size_t Vm) {
     if (sz == 0b11) {
         return DecodeError();
     }
@@ -917,7 +917,12 @@ bool TranslatorVisitor::asimd_VADDHN(bool D, size_t sz, size_t Vn, size_t Vd, bo
     const auto d = ToVector(false, Vd, D);
     const auto n = ToVector(true, Vn, N);
     const auto m = ToVector(true, Vm, M);
-    const auto sum = ir.VectorAdd(wide_esize, ir.GetVector(n), ir.GetVector(m));
+    IR::U128 sum = op ? ir.VectorSub(wide_esize, ir.GetVector(n), ir.GetVector(m))
+                       : ir.VectorAdd(wide_esize, ir.GetVector(n), ir.GetVector(m));
+    if (U) {
+        const auto round = ir.VectorBroadcast(wide_esize, I(wide_esize, 1ULL << (wide_esize / 2 - 1)));
+        sum = ir.VectorAdd(wide_esize, sum, round);
+    }
     const auto high_halves = ir.VectorLogicalShiftRight(wide_esize, sum, static_cast<u8>(wide_esize / 2));
     ir.SetVector(d, ir.VectorNarrow(wide_esize, high_halves));
     return true;
